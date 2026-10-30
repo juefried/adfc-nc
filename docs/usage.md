@@ -5,12 +5,17 @@
 ```text
 adfc-nc users list [OPTIONS]
 adfc-nc users stale [OPTIONS]
+adfc-nc groups search SUCHBEGRIFF... [OPTIONS]
+adfc-nc groups stale SUCHBEGRIFF... [OPTIONS]
 adfc-nc inventory sync
 ```
 
 `users list` ruft alle Benutzer der Instanz ab und zeigt sie als Tabelle.
 `users stale` filtert zusätzlich nach Alter und Inaktivität. Mit `--json`
 steht jeweils eine maschinenlesbare Ausgabe für Skripte zur Verfügung.
+`groups search` durchsucht Gruppen und listet deren Mitglieder. `groups stale`
+zeigt nur Mitglieder, die nach derselben Logik wie `users stale`
+Deaktivierungs-Kandidaten sind.
 
 ## Benutzer auflisten
 
@@ -70,6 +75,148 @@ $env:PYTHONPATH = "src"
 python -m adfc_nc users list
 ```
 
+## Gruppen durchsuchen und auswerten
+
+`groups search` sucht Gruppen über Kennung und Anzeigename. Ein oder mehrere
+Suchbegriffe werden als Argumente übergeben. Jeder Suchbegriff erzeugt einen
+eigenen Report.
+
+```powershell
+adfc-nc groups search Augsburg
+adfc-nc groups search KV_Augsburg --json
+adfc-nc groups search Augsburg Muenchen --type all
+```
+
+### Optionen: groups search
+
+| Option | Werte | Standard | Bedeutung |
+| --- | --- | --- | --- |
+| `SUCHBEGRIFF...` | Text | Pflicht | Vollständiger Gruppenname oder Teilstring |
+| `--type` | `user`, `all`, `resource` | `user` | Benutzer oder Ressourcenbenutzer |
+| `--json` | – | aus | Ausgabe als JSON statt Tabelle |
+| `--help` | – | – | Hilfe anzeigen |
+
+Mit dem Standard `--type user` werden technische Benutzer mit dem Präfix `OC`
+ausgeblendet. `--type all` nimmt sie auf, `--type resource` zeigt ausschließlich
+sie.
+
+### Suchlogik
+
+Die Suche arbeitet lokal auf der vollständigen Gruppenliste. Unterstriche und
+Leerzeichen werden normalisiert, Groß-/Kleinschreibung wird ignoriert. Dadurch
+findet `Augsburg` alle Gruppen, die den Begriff in der Kennung oder im
+Anzeigenamen enthalten:
+
+- `KV_Augsburg_Land`
+- `KV_Augsburg_Stadt`
+- `LV_Augsburg`
+
+Die Namensbestandteile `LV_` und `KV_` sind dabei keine Sonderfälle, sondern
+Teil der normalisierten Kennung. Weitere durch Unterstriche getrennte
+Bestandteile werden genauso berücksichtigt. Auch `KV Augsburg` findet die
+entsprechenden `KV_Augsburg_*`-Gruppen.
+
+### Tabelle
+
+Die Ausgabe besteht aus einer Benutzertabelle und einer Gruppenübersicht. Jeder
+Benutzer erscheint genau einmal. Die Gruppenübersicht referenziert Mitglieder
+nur über ihre Kennung:
+
+| Spalte | Inhalt |
+| --- | --- |
+| Gruppe | Gruppenkennung |
+| Anzeigename | Anzeigename der Gruppe |
+| Anzahl | Anzahl der enthaltenen Benutzer |
+| Mitglieder-Kennungen | Benutzer-IDs, durch Komma getrennt |
+
+Die Benutzertabelle enthält Kennung, Typ, Name, E-Mail, letzte Anmeldung,
+`Angemeldet` (`ja`/`nie`) und Status. Gehört ein Benutzer mehreren gefundenen
+Gruppen an, wird er nicht mehrfach ausgegeben; die Zuordnung ergibt sich aus den
+Mitglieder-Kennungen der Gruppen.
+
+### JSON: groups search
+
+`groups search --json` liefert eine Liste von Report-Objekten, eins pro
+Suchbegriff:
+
+```json
+[
+  {
+    "query": "Augsburg",
+    "type": "user",
+    "groups": [
+      {
+        "id": "KV_Augsburg_Stadt",
+        "display_name": "KV Augsburg Stadt",
+        "member_count": 1,
+        "member_ids": ["jdoe"]
+      }
+    ],
+    "users": [
+      {
+        "id": "jdoe",
+        "display_name": "Jane Doe",
+        "email": "jane@example.org",
+        "enabled": true,
+        "is_resource": false,
+        "type": "user",
+        "last_login": "2026-10-01T12:00:00+02:00",
+        "never_logged_in": false
+      }
+    ]
+  }
+]
+```
+
+- `groups` enthält die gefundenen Gruppen samt Mitgliederzahl und Kennungen.
+- `users` enthält jeden beteiligten Benutzer genau einmal.
+- Die Zuordnung erfolgt ausschließlich über `member_ids` in den Gruppen. Es gibt
+  weder eine `memberships`-Liste noch eine erneute Gruppenliste je Benutzer.
+- `last_login` ist `null` und `never_logged_in` ist `true`, wenn kein Login
+  bekannt ist.
+
+## Deaktivierungs-Kandidaten in Gruppen
+
+`groups stale` verwendet exakt dieselbe Filterlogik wie `users stale`. Es zeigt
+nur Benutzer, die als Kandidaten für eine Deaktivierung gelten, und nur Gruppen
+mit mindestens einem Kandidaten.
+
+```powershell
+adfc-nc groups stale Augsburg
+adfc-nc groups stale Augsburg --min-age-days 90 --inactive-days 30
+adfc-nc groups stale Augsburg --include-unknown-age --json
+adfc-nc groups stale Augsburg --status active --type all
+```
+
+### Optionen: groups stale
+
+| Option | Werte | Standard | Bedeutung |
+| --- | --- | --- | --- |
+| `SUCHBEGRIFF...` | Text | Pflicht | Vollständiger Gruppenname oder Teilstring |
+| `--min-age-days` | Ganzzahl >= 1 | `60` | Mindestalter in Tagen |
+| `--inactive-days` | Ganzzahl >= 1 | `60` | Mindestinaktivität in Tagen |
+| `--include-unknown-age` | – | aus | Benutzer mit unbekanntem Alter einbeziehen |
+| `--status` | `all`, `active`, `disabled` | `all` | Filter nach Aktivierungsstatus |
+| `--type` | `user`, `all`, `resource` | `user` | Benutzer oder Ressourcenbenutzer |
+| `--json` | – | aus | Ausgabe als JSON statt Tabelle |
+| `--help` | – | – | Hilfe anzeigen |
+
+Die Tabelle wird um `Angelegt`, `Alter` und `Inaktiv` ergänzt. Die JSON-Ausgabe
+enthält zusätzlich ein `criteria`-Objekt mit den verwendeten Schwellwerten sowie
+je Benutzer `age_days`, `age_basis`, `age_is_lower_bound`, `age_bound_at`,
+`inactive_days` und `first_login`. Die Referenzierung über `member_ids` bleibt
+unverändert.
+
+## Help bei unvollständigen Befehlen
+
+Fehlt ein Unterbefehl oder ein Pflichtargument, zeigt die CLI die Hilfe mit
+einem zusätzlichen Hinweis auf `--help` und endet mit Exit-Code `2`. Das gilt
+auch, wenn nur Optionen ohne den Pflichtparameter angegeben wurden, zum
+Beispiel `adfc-nc groups search --json`.
+
+Vollständige Befehle werden normal ausgeführt. Unbekannte Optionen und ungültige
+Werte bleiben normale Nutzungsfehler.
+
 ## Inventar synchronisieren
 
 Das lokale Inventar speichert die erste Sichtung eines Benutzers und die
@@ -79,9 +226,9 @@ Login-Zeiten. Es wird für Altersabfragen benötigt:
 adfc-nc inventory sync
 ```
 
-`users stale` aktualisiert das Inventar ebenfalls automatisch. Der Ablageort
-ist über `ADFC_NC_STATE_DIR` konfigurierbar, Standard ist
-`.adfc-nc/inventory.sqlite3`.
+`users stale` und `groups stale` aktualisieren das Inventar ebenfalls
+automatisch. Der Ablageort ist über `ADFC_NC_STATE_DIR` konfigurierbar,
+Standard ist `.adfc-nc/inventory.sqlite3`.
 
 ## Alte und inaktive Benutzer
 

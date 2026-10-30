@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import typer
 
-from adfc_nc.commands.common import load_users_or_exit
+from adfc_nc.commands.common import load_users_or_exit, require_subcommand
 
-inventory_app = typer.Typer(help="Lokales Benutzerinventar verwalten.")
+inventory_app = typer.Typer(
+    help="Lokales Benutzerinventar verwalten.",
+    callback=require_subcommand,
+    invoke_without_command=True,
+)
 
 
 @inventory_app.command("sync")

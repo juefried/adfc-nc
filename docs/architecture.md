@@ -95,12 +95,15 @@ Regeln:
 | --- | --- |
 | `adfc_nc.cli` | Typer-App und Registrierung der Befehlsgruppen |
 | `adfc_nc.commands.users` | CLI-Optionen, Filter, Sortierung, Hinweise |
+| `adfc_nc.commands.groups` | CLI-Optionen für Gruppensuche und Kandidaten |
 | `adfc_nc.commands.inventory` | Synchronisation des lokalen Inventars |
-| `adfc_nc.commands.common` | Gemeinsame Fehler- und Exit-Code-Behandlung |
+| `adfc_nc.commands.common` | Gemeinsame Fehler-, Help- und Exit-Code-Behandlung |
 | `adfc_nc.config` | Einstellungen aus Umgebung und `.env` |
 | `adfc_nc.inventory` | SQLite-Inventar für `first_seen` und exakte Anlagedaten |
+| `adfc_nc.stale` | Gemeinsame Kriterien für Deaktivierungs-Kandidaten |
 | `adfc_nc.nextcloud.client` | HTTP-Client, Auth, OCS-Prüfung, Paging, Retry |
 | `adfc_nc.nextcloud.users` | Benutzer- und Gruppenabfrage, Normalisierung |
+| `adfc_nc.nextcloud.groups` | Gruppensuche und Mitgliederauswertung |
 | `adfc_nc.nextcloud.errors` | Fehlertaxonomie |
 | `adfc_nc.output` | Tabellen- und JSON-Ausgabe |
 
@@ -110,6 +113,12 @@ Regeln:
 | --- | --- | --- |
 | `GET /ocs/v2.php/cloud/users/details` | Alle Benutzer mit Details und Gruppen | verwendet |
 | `GET /ocs/v2.php/cloud/groups/details` | Gruppenkennung und Anzeigename | verwendet |
+
+`groups search` nutzt dieselben beiden Endpunkte: Es lädt die Gruppenliste und
+alle Benutzerdetails einmalig, filtert die Gruppen lokal nach dem Suchbegriff
+und leitet daraus die Mitgliedschaften ab. Ein zusätzlicher Request pro Gruppe
+ist nicht nötig. `groups stale` verwendet denselben Ladepfad mit
+Inventar-Tracking und wendet danach die gemeinsamen Kandidatenkriterien an.
 
 Von Nextcloud 34 ergänzend verfügbar, aktuell nicht verwendet:
 
@@ -607,6 +616,29 @@ Das verhindert abgeschnittene Spalten in typischen Terminals.
 | `last_login` | ISO-8601/`null` | Letztlogin |
 | `inactive_days` | Integer/`null` | Tage seit letzter Anmeldung |
 | `never_logged_in` | Boolean | Kein Erst- oder Letztlogin bekannt |
+
+`groups search --json` und `groups stale --json` liefern je Suchbegriff ein
+Objekt mit `query`, `type`, `groups`, `users` und optional `criteria`:
+
+| Feld | Typ | Bedeutung |
+| --- | --- | --- |
+| `query` | String | Suchbegriff |
+| `type` | String | `user`, `all` oder `resource` |
+| `groups` | Array | Gefundene Gruppen mit `id`, `display_name`, `member_count`, `member_ids` |
+| `users` | Array | Eindeutige Benutzer mit Login-Daten |
+| `criteria` | Objekt/`null` | Nur bei `groups stale`: verwendete Schwellwerte |
+
+Benutzer werden pro Report genau einmal ausgegeben. Gruppen referenzieren sie
+ausschließlich über `member_ids`; `memberships` und erneute Gruppenlisten je
+Benutzer entfallen. Bei `groups stale` enthält jeder Benutzer zusätzlich
+`age_days`, `age_basis`, `age_is_lower_bound`, `age_bound_at`, `first_login` und
+`inactive_days`. Die Gruppensuche normalisiert Unterstriche und Leerzeichen,
+damit `KV_Augsburg` und `KV Augsburg` dieselben Gruppen finden. `groups search`
+bleibt rein lesend; `groups stale` aktualisiert wie `users stale` das Inventar.
+
+Fehlt bei einem Befehl ein Unterbefehl oder Pflichtargument, zeigt
+`commands.common` die Hilfe mit einem zusätzlichen `--help`-Hinweis und beendet
+mit Exit-Code `2`. Unbekannte Optionen bleiben normale Nutzungsfehler.
 
 ## Sicherheit und Datenschutz
 

@@ -63,6 +63,23 @@ def load_users(
     now: datetime | None = None,
 ) -> list[User]:
     """Lädt alle Benutzer samt Gruppen, Login-Zeiten und optionalem Inventar."""
+    _, users = load_users_with_group_names(
+        settings,
+        search=search,
+        track_inventory=track_inventory,
+        now=now,
+    )
+    return users
+
+
+def load_users_with_group_names(
+    settings: Settings,
+    *,
+    search: str = "",
+    track_inventory: bool = False,
+    now: datetime | None = None,
+) -> tuple[dict[str, str], list[User]]:
+    """Lädt Gruppenanzeigenamen und Benutzer in einem gemeinsamen Durchlauf."""
     moment = now or datetime.now(tz=UTC)
     with NextcloudClient(settings) as client:
         group_names = fetch_group_names(client)
@@ -78,7 +95,7 @@ def load_users(
         for item in details
     ]
     if not track_inventory:
-        return base_users
+        return group_names, base_users
 
     with open_inventory(settings.state_dir / "inventory.sqlite3") as inventory:
         inventory.sync(
@@ -97,7 +114,7 @@ def load_users(
         )
         records = inventory.get_many([user.id for user in base_users])
 
-    return [
+    users = [
         to_user(
             item,
             group_names,
@@ -107,6 +124,7 @@ def load_users(
         )
         for item in details
     ]
+    return group_names, users
 
 
 def fetch_user_details(

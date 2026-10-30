@@ -51,6 +51,7 @@ adfc-nc/
 │  ├─ cli.py               # Typer-App, Registrierung der Befehlsgruppen
 │  ├─ config.py            # Settings, Validierung, Env-Mapping
 │  ├─ inventory.py         # lokales SQLite-Inventar
+│  ├─ stale.py             # gemeinsame Kandidatenkriterien
 │  ├─ output.py            # Ausgabe als Tabelle / JSON
 │  ├─ nextcloud/
 │  │  ├─ client.py         # HTTP-Client, Auth, Retries, Fehlerabbildung
@@ -60,6 +61,7 @@ adfc-nc/
 │  └─ commands/            # dünne CLI-Schicht je Ressource
 │     ├─ common.py         # gemeinsame Fehler-/Exit-Code-Behandlung
 │     ├─ users.py
+│     ├─ groups.py
 │     └─ inventory.py
 └─ tests/
    ├─ unit/
@@ -137,18 +139,20 @@ OCS-API; kein `occ` und kein SSH.
   markiert; ihre erste Sichtung ist keine Alters-Untergrenze.
 - `users stale` filtert nach Mindestalter und Inaktivität. Unbekanntes Alter
   wird separat gezählt und nur mit `--include-unknown-age` einbezogen.
+  `groups stale` verwendet exakt dieselben Kriterien.
 - Kennungen mit dem Präfix `ADFC_NC_RESOURCE_USER_PREFIX` (Standard `OC`) sind
   Ressourcen-/Dienstbenutzer. Sie melden sich häufig nie an und sind deshalb
-  in `users stale` standardmäßig ausgeschlossen (`--type user`). `--type all`
-  nimmt sie auf, `--type resource` prüft nur sie. `users list` zeigt sie mit
-  Typ `Ressource`.
+  in `users stale`, `groups search` und `groups stale` standardmäßig
+  ausgeschlossen (`--type user`). `--type all` nimmt sie auf, `--type resource`
+  prüft nur sie. `users list` zeigt sie mit Typ `Ressource`.
 - Deaktivierte Benutzer (`enabled == false`) bei allgemeinen Auswertungen
   standardmäßig ausschließen. `users list` zeigt bewusst alle Benutzer inklusive
   Statusspalte, sofern kein `--status`-Filter gesetzt ist.
 - GET-Antworten dürfen kurzfristig gecacht werden (Referenz: 1 h), aber nur
   instanz- und benutzergebunden. Schreibende Aufrufe nie cachen.
 
-Aktuell implementiert: `users list`, `users stale`, `inventory sync`.
+Aktuell implementiert: `users list`, `users stale`, `groups search`,
+`groups stale`, `inventory sync`.
 Nächster Ausbauschritt `[Vorschlag]`: `users create|disable`,
 `groups list|create|add-member`, `shares create`, `quota set`.
 

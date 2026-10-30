@@ -14,6 +14,10 @@ Umgebungsvariablen beziehungsweise eine lokale `.env`-Datei bereitgestellt.
 - `users stale`: findet alte, inaktive Benutzer anhand von Mindestalter und
   Inaktivität. Ressourcenbenutzer mit `OC*`-Kennung sind standardmäßig
   ausgeschlossen.
+- `groups search`: durchsucht Gruppen nach Namen oder Teilstring und wertet die
+  Mitglieder samt letzter Anmeldung aus.
+- `groups stale`: zeigt Deaktivierungs-Kandidaten in gefundenen Gruppen nach
+  derselben Logik wie `users stale`.
 - `inventory sync`: aktualisiert das lokale Inventar für Altersabfragen.
 - Ausgabe als Tabelle für die Administration oder als JSON für Skripte.
 - Filter nach Suchbegriff und Status, Sortierung nach Kennung, letztem Login,

@@ -1,8 +1,8 @@
 # adfc-nc
 
 Kommandozeilen-Werkzeug für wiederkehrende administrative Aufgaben der
-ADFC-Nextcloud-Instanz. Der erste Befehl listet Benutzer mit Kennung, Name,
-E-Mail-Adresse, letzter Anmeldung und Gruppen.
+ADFC-Nextcloud-Instanz. Die CLI listet und bewertet Benutzer und Gruppen, findet
+Deaktivierungs-Kandidaten und pflegt ein lokales Inventar für Altersabfragen.
 
 Die vollständige Dokumentation liegt unter [`docs/`](docs/index.md):
 
@@ -98,6 +98,35 @@ python -m adfc_nc users list
   `Europe/Berlin`, sonst `nie`
 - **Gruppen**: Anzeigenamen der Gruppen
 - **Status**: `aktiv` oder `deaktiviert`
+
+## Gruppen durchsuchen und auswerten
+
+Durchsucht Gruppen nach einem vollständigen Namen oder Teilstring und listet
+deren Mitglieder mit letzter Anmeldung. Technische `OC*`-Benutzer sind
+standardmäßig ausgeblendet:
+
+```powershell
+adfc-nc groups search Augsburg
+adfc-nc groups search KV_Augsburg --json
+adfc-nc groups search Augsburg Muenchen --type all
+```
+
+Deaktivierungs-Kandidaten nach derselben Logik wie `users stale`:
+
+```powershell
+adfc-nc groups stale Augsburg
+adfc-nc groups stale Augsburg --min-age-days 60 --inactive-days 60
+adfc-nc groups stale Augsburg --include-unknown-age --json
+```
+
+Die Suche normalisiert Unterstriche und Leerzeichen. `Augsburg` findet daher
+`KV_Augsburg_Land`, `KV_Augsburg_Stadt` und `LV_Augsburg`. Benutzer werden pro
+Suchbegriff genau einmal ausgegeben; Gruppen referenzieren sie nur über
+`member_ids`. Die JSON-Ausgabe enthält keine redundanten Mitgliedschaftslisten.
+Zusätzlich stehen je Benutzer `last_login` und `never_logged_in` bereit.
+
+Bei unvollständigen Befehlen zeigt die CLI die Hilfe mit einem Hinweis auf
+`--help` und endet mit Exit-Code `2`.
 
 ## Letzte Anmeldung und Clients
 

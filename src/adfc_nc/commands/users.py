@@ -7,11 +7,23 @@ from typing import Annotated
 
 import typer
 
-from adfc_nc.commands.common import load_users_or_exit
+from adfc_nc.commands.common import load_users_or_exit, require_subcommand
 from adfc_nc.nextcloud.users import AgeBasis, User
 from adfc_nc.output import output_stale_users, output_users
+from adfc_nc.stale import (
+    UserStatus,
+    UserType,
+    matches_inactive,
+    matches_stale,
+    matches_status,
+    matches_type,
+)
 
-users_app = typer.Typer(help="Benutzer der Nextcloud-Instanz verwalten.")
+users_app = typer.Typer(
+    help="Benutzer der Nextcloud-Instanz verwalten.",
+    callback=require_subcommand,
+    invoke_without_command=True,
+)
 
 
 class SortOrder(StrEnum):
@@ -27,22 +39,6 @@ class StaleSortOrder(StrEnum):
     INACTIVE = "inactive"
     AGE = "age"
     ID = "id"
-
-
-class UserStatus(StrEnum):
-    """Statusfilter der Benutzerliste."""
-
-    ALL = "all"
-    ACTIVE = "active"
-    DISABLED = "disabled"
-
-
-class UserType(StrEnum):
-    """Unterscheidung zwischen normalen Benutzern und Ressourcenbenutzern."""
-
-    ALL = "all"
-    USER = "user"
-    RESOURCE = "resource"
 
 
 @users_app.command("list")
@@ -154,7 +150,7 @@ def _filter_users(
     user_type: UserType,
 ) -> list[User]:
     return [
-        user for user in users if _type_matches(user, user_type) and _status_matches(user, status)
+        user for user in users if matches_type(user, user_type) and matches_status(user, status)
     ]
 
 
@@ -171,26 +167,16 @@ def _filter_stale(
     return [
         user
         for user in users
-        if _type_matches(user, user_type)
+        if matches_type(user, user_type)
         and _search_matches(user, search)
-        and _status_matches(user, status)
-        and _matches_stale(user, min_age_days, inactive_days, include_unknown_age)
+        and matches_status(user, status)
+        and matches_stale(
+            user,
+            min_age_days=min_age_days,
+            inactive_days=inactive_days,
+            include_unknown_age=include_unknown_age,
+        )
     ]
-
-
-def _matches_stale(
-    user: User,
-    min_age_days: int,
-    inactive_days: int,
-    include_unknown_age: bool,
-) -> bool:
-    if not _inactive_matches(user, inactive_days):
-        return False
-    if user.age_days is not None and user.age_days >= min_age_days:
-        return True
-    if user.age_basis is AgeBasis.PRE_NC31:
-        return True
-    return include_unknown_age and user.age_basis is AgeBasis.UNKNOWN
 
 
 def _count_unknown_excluded(
@@ -207,10 +193,10 @@ def _count_unknown_excluded(
     return sum(
         1
         for user in users
-        if _type_matches(user, user_type)
+        if matches_type(user, user_type)
         and _search_matches(user, search)
-        and _status_matches(user, status)
-        and _inactive_matches(user, inactive_days)
+        and matches_status(user, status)
+        and matches_inactive(user, inactive_days)
         and user.age_basis is AgeBasis.UNKNOWN
     )
 
@@ -232,8 +218,13 @@ def _count_resource_excluded(
         for user in users
         if user.is_resource
         and _search_matches(user, search)
-        and _status_matches(user, status)
-        and _matches_stale(user, min_age_days, inactive_days, include_unknown_age)
+        and matches_status(user, status)
+        and matches_stale(
+            user,
+            min_age_days=min_age_days,
+            inactive_days=inactive_days,
+            include_unknown_age=include_unknown_age,
+        )
     )
 
 
@@ -246,28 +237,6 @@ def _search_matches(user: User, search: str) -> bool:
         or needle in user.display_name.casefold()
         or (user.email is not None and needle in user.email.casefold())
     )
-
-
-def _type_matches(user: User, user_type: UserType) -> bool:
-    if user_type is UserType.USER:
-        return not user.is_resource
-    if user_type is UserType.RESOURCE:
-        return user.is_resource
-    return True
-
-
-def _status_matches(user: User, status: UserStatus) -> bool:
-    if status is UserStatus.ACTIVE:
-        return user.enabled
-    if status is UserStatus.DISABLED:
-        return not user.enabled
-    return True
-
-
-def _inactive_matches(user: User, inactive_days: int) -> bool:
-    if user.never_logged_in:
-        return True
-    return user.inactive_days is not None and user.inactive_days >= inactive_days
 
 
 def _sort_users(users: list[User], sort_order: SortOrder) -> list[User]:
