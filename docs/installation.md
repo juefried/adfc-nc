@@ -48,6 +48,20 @@ Python-Installation nicht im `PATH`. Alternativ funktioniert der Modulaufruf:
 python -m adfc_nc --help
 ```
 
+## Shell-Completion
+
+PowerShell-Completion dauerhaft installieren:
+
+```powershell
+adfc-nc --install-completion
+```
+
+Danach die Shell neu starten. `python -m adfc_nc --install-completion` ist zu
+vermeiden: Typer 0.27.3 schreibt dabei einen fehlerhaften Block mit dem
+Variablennamen `$Env:_PYTHON _M ADFC_NC_COMPLETE`, der beim Shell-Start einen
+Parser-Fehler verursacht. Ein bereits beschädigtes Profil lässt sich mit dem
+korrigierten Block aus `scripts/adfc-nc-completion.ps1` reparieren.
+
 ## Ohne Paketinstallation arbeiten
 
 Für Entwicklung und Tests kann das Paket auch direkt aus `src` geladen werden:

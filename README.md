@@ -38,6 +38,14 @@ adfc-nc --install-completion
 Danach die Shell neu starten. Nur anzeigen lässt sich das Skript mit
 `adfc-nc --show-completion`.
 
+Wichtig: `python -m adfc_nc --install-completion` erzeugt mit Typer 0.27.3
+einen fehlerhaften PowerShell-Block (`$Env:_PYTHON _M ADFC_NC_COMPLETE`), der
+beim Shell-Start einen Parser-Fehler auslöst. Die Completion deshalb immer
+über den Befehl `adfc-nc` installieren. Falls der Eintrag bereits kaputt ist,
+kann der korrigierte Block aus
+[`scripts/adfc-nc-completion.ps1`](scripts/adfc-nc-completion.ps1) verwendet
+werden.
+
 ## Konfiguration
 
 `.env.example` nach `.env` kopieren und die Werte eintragen:
