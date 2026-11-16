@@ -30,6 +30,10 @@ def _user(
     inactive_days: int | None = 70,
     never_logged_in: bool = False,
     is_resource: bool = False,
+    quota_bytes: int | None = None,
+    quota_unlimited: bool = False,
+    used_bytes: int | None = None,
+    used_percent: float | None = None,
 ) -> User:
     last_login = None if never_logged_in else datetime(2026, 7, 1, 12, 0, tzinfo=BERLIN)
     return User(
@@ -48,6 +52,10 @@ def _user(
         inactive_days=inactive_days,
         never_logged_in=never_logged_in,
         is_resource=is_resource,
+        quota_bytes=quota_bytes,
+        quota_unlimited=quota_unlimited,
+        used_bytes=used_bytes,
+        used_percent=used_percent,
     )
 
 
@@ -56,7 +64,16 @@ def _patch_users(monkeypatch: pytest.MonkeyPatch, users: list[User]) -> None:
 
 
 def test_users_list_json_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_users(monkeypatch, [_user()])
+    _patch_users(
+        monkeypatch,
+        [
+            _user(
+                quota_bytes=1_073_741_824,
+                used_bytes=268_435_456,
+                used_percent=25.0,
+            )
+        ],
+    )
 
     result = RUNNER.invoke(app, ["users", "list", "--json"])
 
@@ -67,20 +84,46 @@ def test_users_list_json_output(monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload[0]["email"] == "jane@example.org"
     assert payload[0]["is_resource"] is False
     assert payload[0]["type"] == "user"
+    assert payload[0]["quota_bytes"] == 1_073_741_824
+    assert payload[0]["quota_unlimited"] is False
+    assert payload[0]["used_bytes"] == 268_435_456
+    assert payload[0]["used_percent"] == 25.0
     assert payload[0]["groups"] == [{"id": "admins", "display_name": "Administratoren"}]
     assert payload[0]["last_login"].startswith("2026-07-01T12:00:00")
 
 
 def test_users_list_table_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    _patch_users(monkeypatch, [_user()])
+    _patch_users(
+        monkeypatch,
+        [
+            _user(
+                quota_bytes=1_073_741_824,
+                used_bytes=268_435_456,
+                used_percent=25.0,
+            )
+        ],
+    )
 
     result = RUNNER.invoke(app, ["users", "list"], color=False)
 
     assert result.exit_code == 0
     assert "jdoe" in result.output
     assert "Jane Doe" in result.output
+    assert "1,0 GiB" in result.output
+    assert "256,0 MiB" in result.output
+    assert "25,0 %" in result.output
     assert "2026-07-01" in result.output
     assert "aktiv" in result.output
+
+
+def test_users_list_table_shows_unlimited_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_users(monkeypatch, [_user(quota_unlimited=True, used_bytes=1024)])
+
+    result = RUNNER.invoke(app, ["users", "list"], color=False)
+
+    assert result.exit_code == 0
+    assert "unbegrenzt" in result.output
+    assert "1,0 KiB" in result.output
 
 
 def test_users_list_filters_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,6 +168,28 @@ def test_users_stale_filters_by_age_and_inactivity(monkeypatch: pytest.MonkeyPat
     assert payload[0]["age_days"] == 70
     assert payload[0]["age_basis"] == "first_login"
     assert payload[0]["inactive_days"] == 70
+
+
+def test_users_stale_json_includes_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_users(
+        monkeypatch,
+        [
+            _user(
+                quota_bytes=2_147_483_648,
+                used_bytes=536_870_912,
+                used_percent=25.0,
+            )
+        ],
+    )
+
+    result = RUNNER.invoke(app, ["users", "stale", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload[0]["quota_bytes"] == 2_147_483_648
+    assert payload[0]["quota_unlimited"] is False
+    assert payload[0]["used_bytes"] == 536_870_912
+    assert payload[0]["used_percent"] == 25.0
 
 
 def test_users_stale_excludes_resource_users_by_default(
