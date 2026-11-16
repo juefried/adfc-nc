@@ -133,6 +133,10 @@ OCS-API; kein `occ` und kein SSH.
 - `firstLoginTimestamp` ist in Sekunden. `-1` bedeutet „vor Nextcloud 31“,
   `0` „nie angemeldet“. Positive Erst-/Letztlogins sind Untergrenzen für das
   Kontalter.
+- `GET /cloud/users/details` liefert je Benutzer `quota` mit `quota` (Bytes,
+  `-3` oder `"none"` = unbegrenzt), `used`, `free`, `total` und `relative`
+  (Prozent). `used` stammt aus dem File-Cache und kann veraltet sein; externe
+  Speicher zählen nur mit `quota_include_external_storage`.
 - Das lokale Inventar unter `ADFC_NC_STATE_DIR` (Standard `.adfc-nc/`) speichert
   `first_seen_at`, `first_seen_source`, Login-Zeiten und optional exaktes
   `created_at`. Beim ersten Sync werden bestehende Benutzer als `baseline`

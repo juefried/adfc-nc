@@ -102,6 +102,9 @@ python -m adfc_nc users list
 - **Typ**: `Benutzer` oder `Ressource`
 - **Name**: Anzeigename
 - **E-Mail**: E-Mail-Adresse
+- **Kontingent**: zugewiesener Speicher, `unbegrenzt` oder `-`
+- **Belegt**: tatsächlich belegter Speicher
+- **Auslastung**: belegter Speicher in Prozent des Kontingents
 - **Letzte Anmeldung**: letzte erfolgreiche Authentifizierung in
   `Europe/Berlin`, sonst `nie`
 - **Gruppen**: Anzeigenamen der Gruppen

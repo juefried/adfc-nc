@@ -288,6 +288,9 @@ Das Alter kann exakt, eine Untergrenze oder unbekannt sein:
 | Typ | `Benutzer` oder `Ressource` |
 | Name | Anzeigename |
 | E-Mail | E-Mail-Adresse oder `-` |
+| Kontingent | Zugewiesener Speicher, `unbegrenzt` oder `-` |
+| Belegt | Tatsächlich belegter Speicher |
+| Auslastung | Belegter Speicher in Prozent des Kontingents |
 | Angelegt | Exaktes Datum, `≤ Datum` oder `unbekannt` |
 | Alter | `≥ 60 T`, `vor NC31` oder `unbekannt` |
 | Letzte Anmeldung | Zeitpunkt in `Europe/Berlin` oder `nie` |
@@ -306,6 +309,10 @@ Das Alter kann exakt, eine Untergrenze oder unbekannt sein:
     "enabled": true,
     "is_resource": false,
     "type": "user",
+    "quota_bytes": null,
+    "quota_unlimited": true,
+    "used_bytes": 1073741824,
+    "used_percent": 0.0,
     "created_at": null,
     "first_seen_at": "2026-08-01T10:00:00+00:00",
     "first_seen_source": "first_seen",
@@ -362,6 +369,9 @@ installieren.
 | Typ | `Benutzer` oder `Ressource` |
 | Name | Anzeigename |
 | E-Mail | E-Mail-Adresse oder `-` |
+| Kontingent | Zugewiesener Speicher, `unbegrenzt` oder `-` |
+| Belegt | Tatsächlich belegter Speicher |
+| Auslastung | Belegter Speicher in Prozent des Kontingents |
 | Letzte Anmeldung | Zeitpunkt in `Europe/Berlin` oder `nie` |
 | Gruppen | Anzeigenamen, durch Komma getrennt, oder `-` |
 | Status | `aktiv` oder `deaktiviert` |
@@ -390,6 +400,10 @@ Die Ausgabe ist eine Liste von Objekten:
     "enabled": true,
     "is_resource": false,
     "type": "user",
+    "quota_bytes": 1073741824,
+    "quota_unlimited": false,
+    "used_bytes": 268435456,
+    "used_percent": 25.0,
     "last_login": "2026-10-01T12:00:00+02:00",
     "groups": [
       {
@@ -411,6 +425,10 @@ Feldbedeutung:
 | `enabled` | Boolean | Benutzer ist aktiviert |
 | `is_resource` | Boolean | Kennung beginnt mit dem Ressourcenpräfix |
 | `type` | String | `user` oder `resource` |
+| `quota_bytes` | Zahl oder `null` | Zugewiesener Speicher in Bytes; `null` = unbegrenzt oder unbekannt |
+| `quota_unlimited` | Boolean | Kontingent ist unbegrenzt |
+| `used_bytes` | Zahl oder `null` | Belegter Speicher in Bytes |
+| `used_percent` | Zahl oder `null` | Auslastung in Prozent |
 | `last_login` | String oder `null` | ISO-8601-Zeitpunkt mit Zeitzone; `null` = nie angemeldet |
 | `groups` | Liste | Gruppen mit Kennung und Anzeigename |
 
@@ -449,3 +467,6 @@ Fehlermeldungen gehen auf `stderr` und enthalten keine Passwörter oder Tokens.
   Alters-Untergrenze aus der ersten Sichtung.
 - Der Login-Zeitpunkt ist ein kombinierter Wert für Web- und Client-Anmeldungen.
   Eine gerätegenaue Client-Auswertung ist über OCS nicht möglich.
+- `used_bytes` stammt aus dem Nextcloud-File-Cache und kann bis zum nächsten
+  Scan/Cron veraltet sein. Externe Speicher zählen nur mit dem Systemsetting
+  `quota_include_external_storage`.

@@ -13,6 +13,8 @@ from adfc_nc.nextcloud.groups import GroupReport
 from adfc_nc.nextcloud.users import AgeBasis, User
 from adfc_nc.stale import StaleCriteria
 
+_BYTE_UNITS = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
+
 
 def output_users(users: Sequence[User], *, as_json: bool) -> None:
     """Gibt die Benutzerliste menschenlesbar oder als JSON aus."""
@@ -204,6 +206,10 @@ def _user_to_dict(user: User) -> dict[str, object]:
         "enabled": user.enabled,
         "is_resource": user.is_resource,
         "type": _user_type_value(user),
+        "quota_bytes": user.quota_bytes,
+        "quota_unlimited": user.quota_unlimited,
+        "used_bytes": user.used_bytes,
+        "used_percent": user.used_percent,
         "last_login": user.last_login.isoformat(timespec="seconds") if user.last_login else None,
         "groups": [
             {"id": group_id, "display_name": group_name}
@@ -220,6 +226,10 @@ def _stale_user_to_dict(user: User) -> dict[str, object]:
         "enabled": user.enabled,
         "is_resource": user.is_resource,
         "type": _user_type_value(user),
+        "quota_bytes": user.quota_bytes,
+        "quota_unlimited": user.quota_unlimited,
+        "used_bytes": user.used_bytes,
+        "used_percent": user.used_percent,
         "created_at": _iso(user.created_at),
         "first_seen_at": _iso(user.first_seen_at),
         "first_seen_source": user.first_seen_source,
@@ -244,6 +254,9 @@ def _build_stale_table(users: Sequence[User]) -> Table:
     table.add_column("Typ", no_wrap=True)
     table.add_column("Name")
     table.add_column("E-Mail")
+    table.add_column("Kontingent", no_wrap=True)
+    table.add_column("Belegt", no_wrap=True)
+    table.add_column("Auslastung", no_wrap=True)
     table.add_column("Angelegt")
     table.add_column("Alter", no_wrap=True)
     table.add_column("Letzte Anmeldung")
@@ -257,6 +270,9 @@ def _build_stale_table(users: Sequence[User]) -> Table:
             _user_type(user),
             user.display_name,
             user.email or "-",
+            _format_quota(user),
+            _format_bytes(user.used_bytes),
+            _format_percent(user.used_percent),
             _format_created_at(user),
             _format_age(user),
             _format_last_login(user.last_login),
@@ -273,6 +289,9 @@ def _build_table(users: Sequence[User]) -> Table:
     table.add_column("Typ", no_wrap=True)
     table.add_column("Name")
     table.add_column("E-Mail")
+    table.add_column("Kontingent", no_wrap=True)
+    table.add_column("Belegt", no_wrap=True)
+    table.add_column("Auslastung", no_wrap=True)
     table.add_column("Letzte Anmeldung")
     table.add_column("Gruppen")
     table.add_column("Status", no_wrap=True)
@@ -283,11 +302,41 @@ def _build_table(users: Sequence[User]) -> Table:
             _user_type(user),
             user.display_name,
             user.email or "-",
+            _format_quota(user),
+            _format_bytes(user.used_bytes),
+            _format_percent(user.used_percent),
             _format_last_login(user.last_login),
             ", ".join(user.group_names) or "-",
             "aktiv" if user.enabled else "deaktiviert",
         )
     return table
+
+
+def _format_bytes(value: int | None) -> str:
+    if value is None:
+        return "-"
+    size = float(value)
+    unit = _BYTE_UNITS[0]
+    for candidate in _BYTE_UNITS[1:]:
+        if size < 1024:
+            break
+        size /= 1024
+        unit = candidate
+    if unit == "B":
+        return f"{int(size)} B"
+    return f"{size:.1f} {unit}".replace(".", ",")
+
+
+def _format_quota(user: User) -> str:
+    if user.quota_unlimited:
+        return "unbegrenzt"
+    return _format_bytes(user.quota_bytes)
+
+
+def _format_percent(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.1f} %".replace(".", ",")
 
 
 def _format_last_login(value: datetime | None) -> str:

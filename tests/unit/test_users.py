@@ -16,6 +16,7 @@ from adfc_nc.nextcloud.users import (
     load_users,
     parse_first_login,
     parse_last_login,
+    parse_quota,
     to_user,
 )
 
@@ -91,6 +92,47 @@ def test_to_user_extracts_fields_and_group_names() -> None:
     assert user.age_basis is AgeBasis.FIRST_LOGIN
     assert user.age_is_lower_bound is True
     assert user.age_bound_at == datetime.fromtimestamp(1_600_000_000, tz=BERLIN)
+    assert user.quota_bytes is None
+    assert user.quota_unlimited is False
+    assert user.used_bytes is None
+    assert user.used_percent is None
+
+
+def test_to_user_extracts_quota() -> None:
+    details = {
+        "id": "jdoe",
+        "quota": {
+            "quota": 1_073_741_824,
+            "used": 268_435_456,
+            "free": 805_306_368,
+            "total": 1_073_741_824,
+            "relative": 25.0,
+        },
+    }
+
+    user = to_user(details, {}, now=NOW)
+
+    assert user.quota_bytes == 1_073_741_824
+    assert user.quota_unlimited is False
+    assert user.used_bytes == 268_435_456
+    assert user.used_percent == 25.0
+
+
+def test_parse_quota_computes_relative_when_missing() -> None:
+    assert parse_quota({"quota": 200, "used": 50}) == (200, False, 50, 25.0)
+
+
+def test_parse_quota_treats_negative_quota_as_unlimited() -> None:
+    assert parse_quota({"quota": -3, "used": 10}) == (None, True, 10, None)
+
+
+def test_parse_quota_treats_none_string_as_unlimited() -> None:
+    assert parse_quota({"quota": "none", "used": 10}) == (None, True, 10, None)
+
+
+def test_parse_quota_without_object_is_unknown() -> None:
+    assert parse_quota(None) == (None, False, None, None)
+    assert parse_quota({}) == (None, False, None, None)
 
 
 def test_to_user_marks_pre_nc31_accounts_as_old() -> None:

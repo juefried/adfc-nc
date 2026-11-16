@@ -53,6 +53,10 @@ class User:
     inactive_days: int | None = None
     never_logged_in: bool = False
     is_resource: bool = False
+    quota_bytes: int | None = None
+    quota_unlimited: bool = False
+    used_bytes: int | None = None
+    used_percent: float | None = None
 
 
 def load_users(
@@ -176,6 +180,7 @@ def to_user(
     group_ids = _extract_group_ids(details.get("groups"))
     first_login, first_login_pre_nc31 = parse_first_login(details)
     last_login = parse_last_login(details)
+    quota_bytes, quota_unlimited, used_bytes, used_percent = parse_quota(details.get("quota"))
     created_at = record.created_at if record else None
     first_seen_at = record.first_seen_at if record else None
     first_seen_source = record.first_seen_source if record else None
@@ -213,6 +218,10 @@ def to_user(
         inactive_days=_days_since(last_login, moment) if last_login else None,
         never_logged_in=last_login is None and first_login is None and not first_login_pre_nc31,
         is_resource=bool(resource_user_prefix) and user_id.startswith(resource_user_prefix),
+        quota_bytes=quota_bytes,
+        quota_unlimited=quota_unlimited,
+        used_bytes=used_bytes,
+        used_percent=used_percent,
     )
 
 
@@ -240,6 +249,54 @@ def parse_last_login(details: dict[str, Any]) -> datetime | None:
     if epoch >= _EPOCH_MILLISECONDS_THRESHOLD:
         epoch //= 1000
     return datetime.fromtimestamp(epoch, tz=_BERLIN)
+
+
+def parse_quota(value: Any) -> tuple[int | None, bool, int | None, float | None]:
+    """Liest Kontingent und belegten Speicher aus dem `quota`-Objekt der OCS-Antwort.
+
+    Rückgabe: Kontingent in Bytes (`None` bei unbegrenzt/unbekannt), Kennzeichen
+    für unbegrenztes Kontingent, belegter Speicher in Bytes und Auslastung in Prozent.
+    """
+    if not isinstance(value, dict):
+        return None, False, None, None
+
+    quota_bytes, quota_unlimited = _parse_quota_value(value.get("quota"))
+    used_bytes = _parse_non_negative_int(value.get("used"))
+    used_percent = _parse_float(value.get("relative"))
+    if used_percent is None and quota_bytes and used_bytes is not None:
+        used_percent = round(used_bytes / quota_bytes * 100, 2)
+    return quota_bytes, quota_unlimited, used_bytes, used_percent
+
+
+def _parse_quota_value(value: Any) -> tuple[int | None, bool]:
+    if isinstance(value, str) and value.strip().lower() == "none":
+        return None, True
+    parsed = _parse_int(value)
+    if parsed is None:
+        return None, False
+    if parsed < 0:
+        return None, True
+    return parsed, False
+
+
+def _parse_non_negative_int(value: Any) -> int | None:
+    parsed = _parse_int(value)
+    if parsed is None or parsed < 0:
+        return None
+    return parsed
+
+
+def _parse_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
 
 
 def calculate_age(
