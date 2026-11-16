@@ -62,6 +62,25 @@ Variablennamen `$Env:_PYTHON _M ADFC_NC_COMPLETE`, der beim Shell-Start einen
 Parser-Fehler verursacht. Ein bereits beschädigtes Profil lässt sich mit dem
 korrigierten Block aus `scripts/adfc-nc-completion.ps1` reparieren.
 
+Der Completion-Block darf im Profil nur einmal stehen. Mehrfache Einträge
+entstehen, wenn `--install-completion` wiederholt ausgeführt wurde; die
+Duplikate vor dem erneuten Eintragen entfernen.
+
+## Keine Ausgabe bei Befehlen
+
+Liefert `adfc-nc` plötzlich für alle Befehle – auch `adfc-nc --help` – keine
+Ausgabe mehr, sind vermutlich Completion-Variablen aus einer abgebrochenen
+Tab-Vervollständigung hängen geblieben. Typer behandelt den Aufruf dann als
+Completion-Anfrage. Die aktuelle Session bereinigen:
+
+```powershell
+Remove-Item Env:_ADFC_NC_COMPLETE, Env:_TYPER_COMPLETE_ARGS, Env:_TYPER_COMPLETE_WORD_TO_COMPLETE -ErrorAction SilentlyContinue
+```
+
+Danach funktioniert `adfc-nc --help` wieder. Ein Neustart der Shell hilft
+ebenfalls. `scripts/adfc-nc-completion.ps1` setzt die Variablen in
+`try/finally` zurück, damit ein Abbruch sie nicht mehr hinterlässt.
+
 ## Ohne Paketinstallation arbeiten
 
 Für Entwicklung und Tests kann das Paket auch direkt aus `src` geladen werden:
