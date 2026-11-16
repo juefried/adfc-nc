@@ -46,6 +46,18 @@ kann der korrigierte Block aus
 [`scripts/adfc-nc-completion.ps1`](scripts/adfc-nc-completion.ps1) verwendet
 werden.
 
+Liefert `adfc-nc` plötzlich gar keine Ausgabe mehr, sind vermutlich
+Completion-Variablen aus einer abgebrochenen Tab-Vervollständigung hängen
+geblieben. Die aktuelle Session bereinigen:
+
+```powershell
+Remove-Item Env:_ADFC_NC_COMPLETE, Env:_TYPER_COMPLETE_ARGS, Env:_TYPER_COMPLETE_WORD_TO_COMPLETE -ErrorAction SilentlyContinue
+```
+
+Danach `adfc-nc --help` erneut ausführen. Der Completion-Block darf im Profil
+nur einmal stehen; `scripts/adfc-nc-completion.ps1` setzt die Variablen in
+`try/finally` zuverlässig zurück.
+
 ## Konfiguration
 
 `.env.example` nach `.env` kopieren und die Werte eintragen:
